@@ -13,6 +13,11 @@
 strToList([], []).
 strToList([X|XS], [Cs|R]):- strToList(XS, R), string_chars(X, Cs).
 
+%extract(Ss, Y)
+% unifies Y with all elements from Ss
+extract([X|_], X).
+extract([_|Ss], Y):-extract(Ss, Y).
+
 % replLine(+InputL, -OutL).
 % helper for finding goal x -> @ -> o
 replLine([], []).
@@ -21,27 +26,91 @@ replLine([s|XS], [s|YS]):- replLine(XS, YS).
 replLine([x|XS], [@|YS]):- replLine(XS, YS).
 replLine([@|XS], [o|YS]):- replLine(XS, YS).
 replLine([o|XS], [o|YS]):- replLine(XS, YS).
-% HEURISTICS
 
+% cutFirstColumn(+LL, -LLO, -RL)
+% takes list of lists and from each list erases head
+% RL is the cut part
+cutFirstColumn([], [], []).
+cutFirstColumn([[X|XS]|YS], [XS|YSCut], [X|Rem]):-cutFirstColumn(YS, YSCut, Rem).
+
+% addFirstColumn(+LL, +Col, -R)
+% add Column to the beginning of LL and return it in R
+addFirstColumn([], [], []).
+addFirstColumn([Line|LL], [XS|Col], [Line2|Res]):-
+	Line2=[XS|Line], addFirstColumn(LL, Col, Res).
+
+
+
+% HEURISTICS
+% TODO
+heur(_,_,R):-R is 0.
 
 % implementation
 % SOKOBAN SPECIFIC
-sokoban(X, Sol):-strToList(X,L), sokobanImpl(L, Sol).
-sokobanImpl(X,Y):-findGoal(X,Y).
-
-
 % findGoal(+Pos, -Goal).
 % finds final position from a given one
 % by appropriate replacements
 findGoal([], []).
 findGoal([X|XS], [Y|YS]):-replLine(X,Y), findGoal(XS, YS).
 
+% nextMove(+F, -T, -D)
+% get all possible moves from F with the direction D (lrud)
+nextMove(F,T,D):-setof([M,D], nextMoveImpl(F,M,D), MS), extract(MS, [T,D]).
+
+% nextMoveImplt(F, T, D)
+% implementation of nextMove
+% it cuts columns and rows in all possible ways until we
+% find sokoban and then try to move him.
+% remove first column, run recursively and give it back
+nextMoveImpl(X, M, D):-X\=[], cutFirstColumn(X,Y, Col),
+	nextMove(Y, Y2, D), addFirstColumn(Y2, Col, M).
+% cut first line
+nextMoveImpl([X|Y], [X|M], D):-X\=[], nextMove(Y, M, D).
+% left
+nextMoveImpl([[o,s|X]|Y], [[s,o|X]|Y], l).
+nextMoveImpl([[x,@,s|X]|Y], [[@,s,o|X]|Y], l).
+nextMoveImpl([[o,@,s|X]|Y], [[@,s,o|X]|Y], l).
+
+% right
+nextMoveImpl([[s,o|X]|Y], [[o,s|X]|Y], r).
+nextMoveImpl([[s,@,x|X]|Y], [[o,s,@|X]|Y], r).
+nextMoveImpl([[s,@,o|X]|Y], [[o,s,@|X]|Y], r).
+
+% down
+nextMoveImpl([[s|X],[o|Y]|R], [[o|X],[s|Y]|R], d).
+nextMoveImpl([[s|X],[@|Y],[x|Z]|R], [[o|X],[s|Y],[@|Z]|R], d).
+nextMoveImpl([[s|X],[@|Y],[o|Z]|R], [[o|X],[s|Y],[@|Z]|R], d).
+
+% up
+nextMoveImpl([[o|X],[s|Y]|R], [[s|X],[o|Y]|R], u).
+nextMoveImpl([[x|X],[@|Y],[s|Z]|R], [[@|X],[s|Y],[o|Z]|R], u).
+nextMoveImpl([[o|X],[@|Y],[s|Z]|R], [[@|X],[s|Y],[o|Z]|R], u).
+
+
+
 % A-STAR
+% sokoban(X, Sol):-strToList(X,L), sokobanIDA(L, Sol).
+
+% sokobanIDA(Start, Goal, Max, Moves):-
+	% sokobanSearch(Start, Goal, 0, Max, Moves),!.
+% sokobanIDA(Start, Goal, Max, Moves):-
+	% Max < 10, Max2 is Max +1, % TODO constant
+	% sokobanIDA(Start, Goal, Max2, Moves).
+
+
+% search Goal from Start which is at most Max moves away
+% sokobanSearch(Start, Goal, Depth, Max, Moves):-
 
 
 
-test:-sokoban(["###",
+% TESTING
+% test:-sokoban(["###",
+               % "#s#",
+               % "#@#",
+               % "#x#",
+               % "###"], Sol), write(Sol).
+test:-strToList(["###",
                "#s#",
                "#@#",
                "#x#",
-               "###"], Sol), write(Sol).
+               "###"], Sol), nextMove(Sol, X,Y), write(X).
