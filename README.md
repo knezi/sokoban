@@ -5,11 +5,13 @@ Simple sokoban solver using IDA-star algorithm. Heuristics used is simple manhat
 ## format of plan
 List of strings - each string is a line where:
 
-| \# | wall |
-| x | spot for a box |
-| s | sokoban |
-| @ | box |
-| o | empty |
+```
+# | wall
+x | spot for a box
+s | sokoban
+@ | box
+o | empty
+```
 
 Sample run:
 
