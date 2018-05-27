@@ -40,11 +40,47 @@ addFirstColumn([], [], []).
 addFirstColumn([Line|LL], [XS|Col], [Line2|Res]):-
 	Line2=[XS|Line], addFirstColumn(LL, Col, Res).
 
+%min(+A, +B, -C)
+%returns the smaller of the two numbers
+min(A, B, A):-A<B.
+min(A, B, B):-A>=B.
+
 
 
 % HEURISTICS
-% TODO
-heur(_,_,R):-R is 0.
+% positions(+C, +S, -Ls)
+% returns list of pairs of positions of char c in S (which is list of lists)
+positions(C, S, L):-positions(C, S, L, 0).
+
+%positions - impl, Y is Y-coord, this cuts by lines
+positions(_, [], [], _).
+positions(C, [LS|Ss], L, Y):-positions(C, LS, L1, 0, Y), Y2 is Y+1,
+									positions(C, Ss, L2, Y2),
+									append(L1, L2, L).
+
+%positions - impl - gets a line and goes char by char
+positions(_, [], [], _, _).
+positions(C, [C|LS], [[X,Y]|L], X, Y):-X2 is X+1, positions(C, LS, L, X2, Y).
+positions(C, [D|LS], L, X, Y):-D\=C, X2 is X+1,  positions(C, LS, L, X2, Y).
+
+
+minDist(_, _, [], 999999).
+minDist(X, Y, [[X2,Y2]|S], DistNew):- minDist(X, Y, S, Dist),
+				abs(X-X2, XDiff), abs(Y-Y2, YDiff),
+				DistCurr is XDiff+YDiff,
+				min(Dist, DistCurr, DistNew).
+
+
+%heur(+Pos, -R)
+% Pos is a position and R is minimal number of moves needed to move to Goal
+heur(S,R):-positions(@, S, Boxes), positions(x, S, Spots), heur(Boxes, Spots, R).
+
+heur([], _, 0).
+heur([[X,Y]|B], S, R2):-
+	minDist(X, Y, S, Dist),
+	heur(B, S, R),
+	R2 is R + Dist.
+
 
 % implementation
 % SOKOBAN SPECIFIC
@@ -91,34 +127,38 @@ nextMoveImpl([[o|X],[@|Y],[s|Z]|R], [[@|X],[s|Y],[o|Z]|R], u).
 
 % A-STAR
 sokoban(X, Sol):-strToList(X,Start), findGoal(Start, Goal),
-	sokobanIDA(Start, Goal, 0, Sol).
+	heur(Start, R),
+	sokobanIDA(Start, Goal, R, Sol).
 
 sokobanIDA(Start, Goal, Max, Moves):-
 	sokobanSearch(Start, Goal, 0, Max, Moves),!.
 sokobanIDA(Start, Goal, Max, Moves):-
-	Max < 10, Max2 is Max +1, % TODO constant
+	Max < 40, Max2 is Max +1,
 	sokobanIDA(Start, Goal, Max2, Moves).
 
 
 % search Goal from Start which is at most Max moves away
 sokobanSearch(Goal, Goal, _, _, []):-!.
 sokobanSearch(Start, Goal, Depth, Max, [Dir|Moves]):-
+	Depth < Max,
 	nextMove(Start, Move, Dir),
-	heur(Start, Goal, R),
-	Depth2 is Depth + 1 + R,
-	(Depth2 < Max; Depth2 is Max),
+	heur(Start, R),
+	Depth2 is Depth + 1,
+	Depth2 + R =< Max,
 	sokobanSearch(Move, Goal, Depth2, Max, Moves).
 
 
 
 
 % TESTING
-test:-sokoban(["###",
-               "#s#",
-               "#@#",
-               "#x#",
-               "###"], Sol), write(Sol).
+% 1 move
+test1:-sokoban(["###",
+                "#s#",
+                "#@#",
+                "#x#",
+                "###"], Sol), write(Sol).
 
+% 8 moves
 test2:-sokoban(["oo###oo",
                 "oo#x#oo",
                 "###@###",
@@ -127,15 +167,25 @@ test2:-sokoban(["oo###oo",
                 "oo#x#oo",
                 "oo###oo"], Sol), write(Sol).
 
-test3:-sokoban(["#######",
+% already too hard
+% 33 moves
+test3:-sokoban(["#########",
+                "##ooooo##",
+                "#ox@x@xo#",
+                "#o@x@x@o#",
+                "#sooo####",
+                "#########"], Sol), write(Sol).
+			
+%60+ moves
+test4:-sokoban(["#######",
                "#xxxo###",
                "#oxo@oo#",
                "#oo@@@o#",
                "####oos#",
                "########"], Sol), write(Sol).
 
-% test:-strToList(["###",
-               % "#s#",
-               % "#@#",
-               % "#x#",
-               % "###"], Sol), nextMove(Sol, X,Y), write(X).
+
+test:- test1.
+test:- test2.
+test:- test3.
+test:- test4.
